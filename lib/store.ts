@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-
 export type Mode = "auto" | "manual";
 
 export interface SystemState {
@@ -48,9 +45,6 @@ interface StoreData {
   next_id: number;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "digital_twin.json");
-
 const DEFAULT_STATE: SystemState = {
   current_temp: 28,
   target_temp: 28,
@@ -60,7 +54,7 @@ const DEFAULT_STATE: SystemState = {
   mode: "auto",
 };
 
-const DEFAULT_STORE: StoreData = {
+let store: StoreData = {
   state: DEFAULT_STATE,
   logs: [],
   next_id: 1,
@@ -70,50 +64,16 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function ensureStore(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(DEFAULT_STORE, null, 2), "utf8");
-  }
-}
-
-function readStore(): StoreData {
-  ensureStore();
-  try {
-    const parsed = JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) as StoreData;
-    if (!parsed || !parsed.state || !Array.isArray(parsed.logs)) {
-      return { ...DEFAULT_STORE };
-    }
-    return {
-      state: parsed.state,
-      logs: parsed.logs,
-      next_id: typeof parsed.next_id === "number" ? parsed.next_id : parsed.logs.length + 1,
-    };
-  } catch {
-    return { ...DEFAULT_STORE };
-  }
-}
-
-function writeStore(store: StoreData): void {
-  ensureStore();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
-}
-
 export function getState(): SystemState {
-  return readStore().state;
+  return store.state;
 }
 
 export function updateState(nextState: SystemState): SystemState {
-  const store = readStore();
   store.state = nextState;
-  writeStore(store);
   return nextState;
 }
 
 export function createLog(input: LogCreate): LogEntry {
-  const store = readStore();
   const entry: LogEntry = {
     id: store.next_id,
     timestamp: new Date().toISOString(),
@@ -135,7 +95,11 @@ export function createLog(input: LogCreate): LogEntry {
     ac_on: input.ac_on,
     mode: input.mode,
   };
-  writeStore(store);
+
+  if (store.logs.length > 500) {
+    store.logs = store.logs.slice(-500);
+  }
+
   return entry;
 }
 
@@ -146,7 +110,6 @@ export function listLogs(params: {
   end_time?: Date;
 }): LogEntry[] {
   const { limit, offset, start_time, end_time } = params;
-  const store = readStore();
 
   const filtered = store.logs
     .filter((log) => {
@@ -161,13 +124,10 @@ export function listLogs(params: {
 }
 
 export function clearLogs(): void {
-  const store = readStore();
   store.logs = [];
-  writeStore(store);
 }
 
 export function getStats(hours: number): StatsResponse {
-  const store = readStore();
   const cutoff = Date.now() - hours * 60 * 60 * 1000;
   const filtered = store.logs.filter((entry) => +new Date(entry.timestamp) >= cutoff);
 
