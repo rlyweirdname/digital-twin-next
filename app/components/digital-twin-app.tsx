@@ -192,6 +192,9 @@ function formatMode(mode: "auto" | "manual"): string {
   return mode === "auto" ? "TỰ ĐỘNG" : "THỦ CÔNG";
 }
 
+const FAN_ON_TEMP = 28;
+const AC_ON_TEMP = 32;
+
 function simulateStateTick(current: UiState): UiState {
   const next = { ...current };
   const tempDelta = next.currentTemp - current.currentTemp;
@@ -204,19 +207,26 @@ function simulateStateTick(current: UiState): UiState {
     next.currentTemp += Math.max(-0.3, -0.15);
   } else {
     const diff = next.targetTemp - next.currentTemp;
+
     if (next.mode === "auto") {
-      if (diff < -0.4) {
-        next.acOn = true;
-        next.fanOn = true;
-        next.currentTemp += Math.max(-0.22, diff * 0.08);
-      } else if (diff > 0.4) {
-        next.acOn = false;
-        next.fanOn = false;
+      if (next.temperatureRising) {
+        next.fanOn = next.currentTemp >= FAN_ON_TEMP;
+        next.acOn = next.currentTemp >= AC_ON_TEMP;
         next.currentTemp += Math.min(0.16, diff * 0.06);
       } else {
-        next.acOn = false;
-        next.fanOn = false;
-        next.currentTemp += (Math.random() - 0.5) * 0.03;
+        if (diff < -0.4) {
+          next.acOn = true;
+          next.fanOn = true;
+          next.currentTemp += Math.max(-0.22, diff * 0.08);
+        } else if (diff > 0.4) {
+          next.acOn = false;
+          next.fanOn = false;
+          next.currentTemp += Math.min(0.16, diff * 0.06);
+        } else {
+          next.acOn = false;
+          next.fanOn = false;
+          next.currentTemp = clamp(next.currentTemp + (Math.random() - 0.5) * 0.01, next.currentTemp - 0.005, next.currentTemp + 0.005);
+        }
       }
     } else if (next.acOn) {
       next.currentTemp -= 0.16;
@@ -229,7 +239,7 @@ function simulateStateTick(current: UiState): UiState {
 
   next.currentTemp = clamp(next.currentTemp, TEMP_MIN, TEMP_MAX);
   next.humidity = clamp(
-    56 - (next.acOn ? 10 : 0) + (Math.random() - 0.5) * 1.2,
+    56 - (next.acOn ? 10 : 0) + (Math.random() - 0.5) * 0.2,
     HUMIDITY_MIN,
     HUMIDITY_MAX,
   );
@@ -946,17 +956,19 @@ export default function DigitalTwinApp() {
     });
   }, [computeRoomCenter, lockVerticalOrbit, setWallVisible]);
 
-  const applyAcTint = useCallback((acOn: boolean, isAlertCooling: boolean) => {
+  const applyAcTint = useCallback((acOn: boolean, temperatureRising: boolean) => {
     const target = acTintTargetRef.current;
     if (!target) {
       return;
     }
 
     try {
-      if (isAlertCooling) {
+      if (acOn && !temperatureRising) {
+        (target as SPEObject & { color?: string }).color = "#21d9d0";
+      } else if (acOn && temperatureRising) {
         (target as SPEObject & { color?: string }).color = "#ff4444";
       } else {
-        (target as SPEObject & { color?: string }).color = acOn ? "#21d9d0" : "#f3f6fb";
+        (target as SPEObject & { color?: string }).color = "#f3f6fb";
       }
     } catch {
       // Keep runtime stable even if this object type does not expose color.
