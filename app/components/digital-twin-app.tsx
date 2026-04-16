@@ -19,6 +19,7 @@ const SIMULATION_TICK_MS = 1200;
 const TEMP_MIN = 20;
 const TEMP_MAX = 50;
 const TEMP_ALERT_THRESHOLD = 40;
+const AUTO_COOL_TARGET = 23;
 const HUMIDITY_MIN = 30;
 const HUMIDITY_MAX = 80;
 const FAN_SPIN_AXIS_OVERRIDE: RotationAxis | null = "y";
@@ -193,34 +194,37 @@ function formatMode(mode: "auto" | "manual"): string {
 
 function simulateStateTick(current: UiState): UiState {
   const next = { ...current };
-  const diff = next.targetTemp - next.currentTemp;
   const tempDelta = next.currentTemp - current.currentTemp;
   next.temperatureRising = tempDelta > 0;
 
   if (next.currentTemp >= TEMP_ALERT_THRESHOLD) {
     next.acOn = true;
     next.fanOn = true;
+    next.targetTemp = AUTO_COOL_TARGET;
     next.currentTemp += Math.max(-0.3, -0.15);
-  } else if (next.mode === "auto") {
-    if (diff < -0.4) {
-      next.acOn = true;
-      next.fanOn = true;
-      next.currentTemp += Math.max(-0.22, diff * 0.08);
-    } else if (diff > 0.4) {
-      next.acOn = false;
-      next.fanOn = false;
-      next.currentTemp += Math.min(0.16, diff * 0.06);
-    } else {
-      next.acOn = false;
-      next.fanOn = false;
-      next.currentTemp += (Math.random() - 0.5) * 0.03;
-    }
-  } else if (next.acOn) {
-    next.currentTemp -= 0.16;
-  } else if (next.fanOn) {
-    next.currentTemp -= 0.07;
   } else {
-    next.currentTemp += 0.06;
+    const diff = next.targetTemp - next.currentTemp;
+    if (next.mode === "auto") {
+      if (diff < -0.4) {
+        next.acOn = true;
+        next.fanOn = true;
+        next.currentTemp += Math.max(-0.22, diff * 0.08);
+      } else if (diff > 0.4) {
+        next.acOn = false;
+        next.fanOn = false;
+        next.currentTemp += Math.min(0.16, diff * 0.06);
+      } else {
+        next.acOn = false;
+        next.fanOn = false;
+        next.currentTemp += (Math.random() - 0.5) * 0.03;
+      }
+    } else if (next.acOn) {
+      next.currentTemp -= 0.16;
+    } else if (next.fanOn) {
+      next.currentTemp -= 0.07;
+    } else {
+      next.currentTemp += 0.06;
+    }
   }
 
   next.currentTemp = clamp(next.currentTemp, TEMP_MIN, TEMP_MAX);
@@ -942,14 +946,14 @@ export default function DigitalTwinApp() {
     });
   }, [computeRoomCenter, lockVerticalOrbit, setWallVisible]);
 
-  const applyAcTint = useCallback((acOn: boolean, temperatureRising: boolean) => {
+  const applyAcTint = useCallback((acOn: boolean, isAlertCooling: boolean) => {
     const target = acTintTargetRef.current;
     if (!target) {
       return;
     }
 
     try {
-      if (temperatureRising) {
+      if (isAlertCooling) {
         (target as SPEObject & { color?: string }).color = "#ff4444";
       } else {
         (target as SPEObject & { color?: string }).color = acOn ? "#21d9d0" : "#f3f6fb";
