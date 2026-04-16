@@ -198,7 +198,7 @@ const AC_ON_TEMP = 32;
 function simulateStateTick(current: UiState): UiState {
   const next = { ...current };
   const tempDelta = next.currentTemp - current.currentTemp;
-  next.temperatureRising = tempDelta > 0;
+  next.temperatureRising = tempDelta > 0 || next.targetTemp > next.currentTemp;
 
   if (next.currentTemp >= TEMP_ALERT_THRESHOLD) {
     next.acOn = true;
@@ -212,7 +212,11 @@ function simulateStateTick(current: UiState): UiState {
       if (next.temperatureRising) {
         next.fanOn = next.currentTemp >= FAN_ON_TEMP;
         next.acOn = next.currentTemp >= AC_ON_TEMP;
-        next.currentTemp += Math.min(0.16, diff * 0.06);
+        if (Math.abs(diff) < 0.1) {
+          next.currentTemp = next.targetTemp;
+        } else {
+          next.currentTemp += Math.min(0.2, diff * 0.15);
+        }
       } else {
         if (diff < -0.4) {
           next.acOn = true;
