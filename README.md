@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Smart Room Digital Twin (Next.js)
 
-## Getting Started
+This app is a full Next.js reset of the dashboard.
 
-First, run the development server:
+- Frontend route: `/`
+- API routes: `/api/state`, `/api/logs`, `/api/logs/stats`
+- Data persistence: `data/digital_twin.json`
+
+## Run
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`GET /api/state`
+- Returns current digital twin state.
 
-## Learn More
+`PUT /api/state`
+- Updates state payload:
+```json
+{
+  "current_temp": 28,
+  "target_temp": 28,
+  "humidity": 55,
+  "fan_on": false,
+  "ac_on": false,
+  "mode": "auto"
+}
+```
 
-To learn more about Next.js, take a look at the following resources:
+`POST /api/logs`
+- Creates a log entry payload:
+```json
+{
+  "temperature": 29.4,
+  "humidity": 57,
+  "fan_on": true,
+  "ac_on": false,
+  "target_temp": 28,
+  "mode": "auto"
+}
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`GET /api/logs?limit=100&offset=0`
+- Returns log entries (latest first). Optional `start_time` and `end_time` filters are supported.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`DELETE /api/logs`
+- Clears all logs.
 
-## Deploy on Vercel
+`GET /api/logs/stats?hours=24`
+- Returns aggregate stats for the selected hour window.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Verify
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npm run build
+```
