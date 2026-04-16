@@ -195,7 +195,7 @@ function formatMode(mode: "auto" | "manual"): string {
   return mode === "auto" ? "TỰ ĐỘNG" : "THỦ CÔNG";
 }
 
-const FAN_ON_TEMP = 30;
+const FAN_ON_TEMP = 28;
 const AC_COOL_THRESHOLD = 34;
 const AC_COOL_TARGET = 25;
 
