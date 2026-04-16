@@ -128,8 +128,8 @@ interface TvBinding {
 }
 
 const DEFAULT_STATE: UiState = {
-  currentTemp: 28,
-  targetTemp: 28,
+  currentTemp: 25,
+  targetTemp: 25,
   humidity: 55,
   fanOn: false,
   acOn: false,

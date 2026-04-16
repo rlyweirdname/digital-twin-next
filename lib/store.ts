@@ -46,8 +46,8 @@ interface StoreData {
 }
 
 const DEFAULT_STATE: SystemState = {
-  current_temp: 28,
-  target_temp: 28,
+  current_temp: 25,
+  target_temp: 25,
   humidity: 55,
   fan_on: false,
   ac_on: false,
