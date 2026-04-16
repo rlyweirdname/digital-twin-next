@@ -18,6 +18,7 @@ const CUTAWAY_TICK_MS = 110;
 const SIMULATION_TICK_MS = 1200;
 const TEMP_MIN = 20;
 const TEMP_MAX = 50;
+const TEMP_ALERT_THRESHOLD = 40;
 const HUMIDITY_MIN = 30;
 const HUMIDITY_MAX = 80;
 const FAN_SPIN_AXIS_OVERRIDE: RotationAxis | null = "y";
@@ -44,6 +45,7 @@ interface UiState {
   fanOn: boolean;
   acOn: boolean;
   mode: "auto" | "manual";
+  temperatureRising: boolean;
 }
 
 interface StatsResponse {
@@ -130,6 +132,7 @@ const DEFAULT_STATE: UiState = {
   fanOn: false,
   acOn: false,
   mode: "auto",
+  temperatureRising: false,
 };
 
 function toUiState(payload: ApiState): UiState {
@@ -140,6 +143,7 @@ function toUiState(payload: ApiState): UiState {
     fanOn: payload.fan_on,
     acOn: payload.ac_on,
     mode: payload.mode,
+    temperatureRising: false,
   };
 }
 
@@ -190,8 +194,14 @@ function formatMode(mode: "auto" | "manual"): string {
 function simulateStateTick(current: UiState): UiState {
   const next = { ...current };
   const diff = next.targetTemp - next.currentTemp;
+  const tempDelta = next.currentTemp - current.currentTemp;
+  next.temperatureRising = tempDelta > 0;
 
-  if (next.mode === "auto") {
+  if (next.currentTemp >= TEMP_ALERT_THRESHOLD) {
+    next.acOn = true;
+    next.fanOn = true;
+    next.currentTemp += Math.max(-0.3, -0.15);
+  } else if (next.mode === "auto") {
     if (diff < -0.4) {
       next.acOn = true;
       next.fanOn = true;
@@ -932,14 +942,18 @@ export default function DigitalTwinApp() {
     });
   }, [computeRoomCenter, lockVerticalOrbit, setWallVisible]);
 
-  const applyAcTint = useCallback((acOn: boolean) => {
+  const applyAcTint = useCallback((acOn: boolean, temperatureRising: boolean) => {
     const target = acTintTargetRef.current;
     if (!target) {
       return;
     }
 
     try {
-      (target as SPEObject & { color?: string }).color = acOn ? "#21d9d0" : "#f3f6fb";
+      if (temperatureRising) {
+        (target as SPEObject & { color?: string }).color = "#ff4444";
+      } else {
+        (target as SPEObject & { color?: string }).color = acOn ? "#21d9d0" : "#f3f6fb";
+      }
     } catch {
       // Keep runtime stable even if this object type does not expose color.
     }
@@ -1195,8 +1209,8 @@ export default function DigitalTwinApp() {
       }
     }
 
-    applyAcTint(state.acOn);
-  }, [applyAcTint, state.acOn, state.currentTemp, state.fanOn, state.targetTemp]);
+    applyAcTint(state.acOn, state.temperatureRising);
+  }, [applyAcTint, state.acOn, state.temperatureRising]);
 
   useEffect(() => {
     applyLightState(lightOn);
@@ -1443,7 +1457,7 @@ export default function DigitalTwinApp() {
             splineRef.current = app;
             buildSplineBindings(app);
             lockVerticalOrbit();
-            applyAcTint(state.acOn);
+            applyAcTint(state.acOn, state.temperatureRising);
             applyCutaway();
           }}
         />
