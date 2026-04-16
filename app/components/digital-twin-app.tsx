@@ -255,11 +255,11 @@ function simulateStateTick(current: UiState): UiState {
   }
 
   next.currentTemp = clamp(next.currentTemp, TEMP_MIN, TEMP_MAX);
-  next.humidity = clamp(
-    56 - (next.acOn && !next.acHeating ? 10 : 0) + (Math.random() - 0.5) * 0.2,
-    HUMIDITY_MIN,
-    HUMIDITY_MAX,
-  );
+  if (next.acOn && !next.acHeating) {
+    next.humidity = clamp(current.humidity - 2 + (Math.random() - 0.5) * 0.2, HUMIDITY_MIN, HUMIDITY_MAX);
+  } else {
+    next.humidity = clamp(current.humidity + 0.001, HUMIDITY_MIN, HUMIDITY_MAX);
+  }
 
   return next;
 }
